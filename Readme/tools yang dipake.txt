@@ -1,0 +1,211 @@
+Courier New
+
+1. LangGraph — Orchestrator / Workflow Engine
+
+Ini framework utama untuk mengatur alur AI agent.
+
+Di kodenya:
+
+from langgraph.graph import StateGraph, START, END
+from langgraph.checkpoint.memory import MemorySaver
+
+Fungsinya:
+
+mengatur flow chatbot
+menentukan node
+menyimpan state percakapan
+menjaga memory chat
+
+Dalam sistemmu, flow-nya:
+
+START → chatbot_node → END
+
+Peran:
+
+“otak workflow” AI
+2. Google Gemini API — Large Language Model (LLM)
+
+Dari sini:
+
+from google import genai
+client = genai.Client(...)
+
+dan:
+
+model='models/gemini-2.5-flash'
+
+Ini AI utama yang melakukan:
+
+memahami curhatan korban
+analisis konteks
+klasifikasi jenis kekerasan
+generate jawaban empatik
+
+Peran:
+
+“brain / reasoning engine”
+3. Fonnte — WhatsApp Gateway
+
+Dari .env:
+
+FONNTE_TOKEN=...
+
+Artinya kamu pakai Fonnte untuk koneksi WhatsApp.
+
+Fungsinya:
+
+menerima pesan dari user
+kirim pesan balasan AI
+integrasi WhatsApp tanpa bikin WA API sendiri
+
+Flow:
+
+User WhatsApp → Fonnte → Backend Python
+
+Peran:
+
+“communication channel”
+4. MySQL — Database
+
+Dari:
+
+DB_HOST=localhost
+DB_USER=root
+DB_NAME=db_pengaduan
+
+Database utama sistem.
+
+Kemungkinan menyimpan:
+
+data korban
+hasil asesmen
+klasifikasi kasus
+histori pengaduan
+status penanganan
+
+Contoh tabel:
+
+users
+pengaduan
+chat_history
+admin
+
+Peran:
+
+“persistent storage”
+5. phpMyAdmin — Database Management Tool
+
+Kamu pernah bilang pakai phpMyAdmin.
+
+Ini bukan core AI, tapi tool bantu.
+
+Fungsinya:
+
+lihat isi database
+edit record manual
+debugging data
+
+Peran:
+
+“database dashboard”
+6. Python — Backend Runtime
+
+Karena semua script-mu Python:
+
+import os
+from dotenv import load_dotenv
+
+Python menjalankan:
+
+backend logic
+API integration
+LangGraph
+database query
+
+Peran:
+
+“backend server”
+7. python-dotenv — Environment Manager
+
+Dari:
+
+from dotenv import load_dotenv
+load_dotenv()
+
+Fungsinya:
+
+membaca .env
+menyembunyikan credential
+
+Supaya:
+
+API key aman
+token WA aman
+
+Peran:
+
+“config manager”
+8. MemorySaver (LangGraph Checkpointer)
+
+Dari:
+
+memory = MemorySaver()
+
+Ini tool memory internal.
+
+Fungsinya:
+
+simpan context chat
+AI ingat pertanyaan sebelumnya
+
+Contoh:
+User:
+
+Saya korban KDRT
+
+5 chat kemudian AI masih ingat konteks itu.
+
+Peran:
+
+“short-term conversational memory”
+9. System Prompt Engine (Custom Rule Engine)
+
+Bagian ini:
+
+SYSTEM_PROMPT = (...)
+
+Secara teknis bukan library, tapi tool prompt engineering.
+
+Di situ kamu mendefinisikan aturan AI:
+
+harus empatik
+toleran typo
+wajib asesmen bertahap
+wajib output klasifikasi
+
+Peran:
+
+“behavior controller”
+Kalau divisualisasikan sistemmu:
+User
+ ↓
+WhatsApp
+ ↓
+Fonnte
+ ↓
+Python Backend
+ ↓
+LangGraph
+ ↓
+Gemini AI
+ ↓
+Memory
+ ↓
+MySQL
+ ↓
+Admin / Konselor
+Jika dosen tanya “Tools apa saja yang digunakan?”
+
+Jawaban formalnya bisa seperti ini:
+
+Sistem ini dibangun menggunakan beberapa tools utama, yaitu Python sebagai backend, LangGraph sebagai framework AI agent workflow, Google Gemini API sebagai model Large Language Model untuk pemrosesan bahasa alami, Fonnte sebagai WhatsApp gateway, MySQL sebagai database penyimpanan data pengaduan, serta phpMyAdmin untuk pengelolaan database. Sistem juga memanfaatkan MemorySaver untuk mempertahankan konteks percakapan dan prompt engineering untuk mengatur perilaku AI konselor.
