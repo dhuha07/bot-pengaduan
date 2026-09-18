@@ -14,7 +14,7 @@ load_dotenv()
 app = FastAPI(title="AMARA Bot Service")
 
 
-# 2. Middleware Response Time (Aman & Tidak Memblokir Request Body)
+# 2. Middleware Response Time
 @app.middleware("http")
 async def add_process_time_header(request: Request, call_next):
     start_time = time.perf_counter()
@@ -197,6 +197,14 @@ def process_agent_response(
 
 
 # ===================================================================
+# ENDPOINT HEALTH CHECK / ROOT
+# ===================================================================
+@app.get("/")
+async def root():
+    return {"status": "ok", "message": "AMARA Bot Service Running"}
+
+
+# ===================================================================
 # ENDPOINT 1: TESTING SWAGGER UI (/chat)
 # ===================================================================
 @app.post("/chat")
@@ -214,8 +222,11 @@ async def chat_manual(req: ChatRequest):
 # ===================================================================
 # ENDPOINT 2: WEBHOOK FONNTE WHATSAPP (/whatsapp)
 # ===================================================================
-@app.post("/whatsapp")
+@app.api_route("/whatsapp", methods=["GET", "POST"])
 async def whatsapp_webhook(request: Request):
+    if request.method == "GET":
+        return {"status": "success", "message": "Webhook Whatsapp Fonnte Aktif"}
+
     try:
         content_type = request.headers.get("content-type", "")
         if "application/json" in content_type:
@@ -279,4 +290,4 @@ async def whatsapp_webhook(request: Request):
 
     except Exception as e:
         print(f"\n[❌ ERROR GLOBAL WEBHOOK]: {str(e)}\n")
-        return {"status": "error"}
+        return {"status": "error", "detail": str(e)}
