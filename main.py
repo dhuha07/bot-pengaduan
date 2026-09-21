@@ -6,12 +6,22 @@ import requests
 from agent import compiled_agent
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
 # 1. Load Environment Variables
 load_dotenv()
 
 app = FastAPI(title="AMARA Bot Service")
+
+# Tambahkan CORS agar Front-End di Vercel bisa memanggil API ini tanpa terhalang browser
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Atau isi spesifik dengan "https://pengaduan-app-mauve.vercel.app"
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 # 2. Middleware Response Time
@@ -27,20 +37,22 @@ async def add_process_time_header(request: Request, call_next):
     return response
 
 
-# 3. Pydantic Model untuk Testing Swagger UI
+# 3. Pydantic Model untuk Testing Swagger UI / Call dari Vercel
 class ChatRequest(BaseModel):
     nomor_wa: str
     message: str
 
 
-# 4. Database Connection Helper
+# 4. Database Connection Helper (Safe Timeout)
 def get_db_connection():
     return pymysql.connect(
         host=os.getenv("DB_HOST", "localhost"),
         user=os.getenv("DB_USER", "root"),
         password=os.getenv("DB_PASSWORD", ""),
         database=os.getenv("DB_NAME", "db_pengaduan"),
+        port=int(os.getenv("DB_PORT", "13306")),
         charset="utf8mb4",
+        connect_timeout=5,
         cursorclass=pymysql.cursors.DictCursor,
     )
 
@@ -197,15 +209,19 @@ def process_agent_response(
 
 
 # ===================================================================
-# ENDPOINT HEALTH CHECK / ROOT
+# ENDPOINT HEALTH CHECK / ROOT (MURNI BACK-END JSON)
 # ===================================================================
 @app.get("/")
 async def root():
-    return {"status": "ok", "message": "AMARA Bot Service Running"}
+    return {
+        "status": "online",
+        "service": "AMARA Bot API",
+        "version": "1.0.0"
+    }
 
 
 # ===================================================================
-# ENDPOINT 1: TESTING SWAGGER UI (/chat)
+# ENDPOINT 1: TESTING SWAGGER UI & FRONTEND CALL (/chat)
 # ===================================================================
 @app.post("/chat")
 async def chat_manual(req: ChatRequest):
