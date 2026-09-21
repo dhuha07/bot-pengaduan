@@ -3,7 +3,6 @@ import os
 import time
 import pymysql
 import requests
-from agent import compiled_agent
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,10 +13,10 @@ load_dotenv()
 
 app = FastAPI(title="AMARA Bot Service")
 
-# Tambahkan CORS agar Front-End di Vercel bisa memanggil API ini tanpa terhalang browser
+# CORS middleware agar Front-End Vercel dapat memanggil API ini
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Atau isi spesifik dengan "https://pengaduan-app-mauve.vercel.app"
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -164,10 +163,13 @@ def simpan_chat_log(
         print(f"[❌ DB CHAT LOG ERROR]: {db_err}")
 
 
-# 9. Core Business Logic Handler
+# 9. Core Business Logic Handler (Lazy Import Agent)
 def process_agent_response(
     sender: str, raw_message: str, gps_location_text: str = ""
 ) -> str:
+    # LAZY IMPORT: Baru dimuat saat ada pesan masuk agar startup FastAPI cepat
+    from agent import compiled_agent
+
     start_time = time.time()
 
     full_user_message = raw_message
@@ -216,7 +218,7 @@ async def root():
     return {
         "status": "online",
         "service": "AMARA Bot API",
-        "version": "1.0.0"
+        "version": "1.0.0",
     }
 
 
