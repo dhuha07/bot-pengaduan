@@ -1,13 +1,17 @@
 import json
 import os
 import re
-import time
+import sys
 import pymysql
 import requests
 from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+
+# Supaya "from agent import compiled_agent" dan "from db_helper import ..."
+# tetap bisa ditemukan walau file ini pindah ke folder api/
+sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
 load_dotenv()
 
@@ -42,17 +46,15 @@ def clean_text(raw: str) -> str:
     if not isinstance(raw, str):
         return raw
     raw = raw.strip()
-    # Buang code fence ```json ... ``` atau ``` ... ```
     raw = re.sub(r"^```(?:json)?\s*", "", raw)
     raw = re.sub(r"\s*```$", "", raw)
-    # Normalisasi karakter invisible/spasi non-standar
-    raw = raw.replace("\u200b", "")   # zero-width space
-    raw = raw.replace("\u200c", "")   # zero-width non-joiner
-    raw = raw.replace("\u200d", "")   # zero-width joiner
-    raw = raw.replace("\ufeff", "")   # BOM
-    raw = raw.replace("\xa0", " ")    # non-breaking space
-    raw = raw.replace("\u2028", " ")  # line separator
-    raw = raw.replace("\u2029", " ")  # paragraph separator
+    raw = raw.replace("\u200b", "")
+    raw = raw.replace("\u200c", "")
+    raw = raw.replace("\u200d", "")
+    raw = raw.replace("\ufeff", "")
+    raw = raw.replace("\xa0", " ")
+    raw = raw.replace("\u2028", " ")
+    raw = raw.replace("\u2029", " ")
     return raw.strip()
 
 def simpan_atau_update_pengaduan(data_json: dict, sender: str):
@@ -152,7 +154,7 @@ async def whatsapp_webhook(request: Request):
                 headers={"Authorization": fonnte_token},
                 timeout=5,
             )
-        
+
         return {"status": "processed"}
 
     except Exception as e:
