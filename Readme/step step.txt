@@ -1,0 +1,38 @@
+==================================================
+  PANDUAN JALANKAN BOT AMARA WHATSAPP (KILAT)
+==================================================
+
+[JENDELA 1: UVICORN SERVER]
+1. Buka Anaconda Prompt
+2. Ketik & tekan Enter:
+   conda activate skripsi_env
+
+3. Ketik & tekan Enter:
+   cd bot-pengaduan
+
+4. Ketik & tekan Enter:
+   uvicorn main:app --reload --port 8000
+   (Biarkan terbuka sampai ada tulisan 'Application startup complete')
+
+--------------------------------------------------
+
+[JENDELA 2: NGROK JALUR INTERNET]
+1. Buka Anaconda Prompt BARU (Jendela kedua)
+2. Ketik & tekan Enter:
+   ngrok http 8000
+
+3. Copy URL HTTPS yang muncul (contoh: https://xxxx.ngrok-free.app)
+
+
+--------------------------------------------------
+
+
+[JENDELA 3: FONNTE WEBHOOK]
+1. Buka dashboard Fonnte.com -> Menu Webhook
+2. Paste URL Ngrok dengan akhiran /whatsapp
+   Contoh: https://xxxx.ngrok-free.app/whatsapp
+3. Klik Save / Simpan
+
+==================================================
+  SELESAI! TINGGAL TES CHAT DARI WHATSAPP HP
+==================================================

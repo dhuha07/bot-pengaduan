@@ -1,0 +1,11 @@
+import pymysql
+c=pymysql.connect(host='localhost',user='root',password='',database='db_pengaduan',cursorclass=pymysql.cursors.DictCursor)
+cur=c.cursor()
+cur.execute("SELECT COUNT(*) as c FROM pengaduan")
+print("pengaduan count",cur.fetchone())
+cur.execute("SELECT kategori_kasus, COUNT(*) as j FROM pengaduan GROUP BY kategori_kasus")
+print(cur.fetchall())
+cur.execute("SELECT DATE(created_at) as d, COUNT(*) as j FROM pengaduan GROUP BY d")
+print(cur.fetchall())
+c.close()
+print("DB OK")

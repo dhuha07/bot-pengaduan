@@ -1,0 +1,11 @@
+.env
+venv/
+__pycache__/
+*.pyc
+ca.pem
+cek_*.py
+hapus_uji.py
+insert_admin.py
+tes_lengkap.py
+buat_superadmin.py
+cek_db.py

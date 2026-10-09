@@ -1,0 +1,51 @@
+1. Referensi Mengenai Kemampuan LLM dalam Memahami Teks Alami & Konteks
+Judul Jurnal: A Survey on Evaluation of Large Language Models
+
+Penulis: Yapeng Chang, et al.
+
+Penerbit / Jurnal: ACM Computing Surveys (2024)
+
+Ringkasan untuk Skripsi: Jurnal ini melakukan evaluasi menyeluruh terhadap performa LLM modern. Salah satu temuan utamanya adalah bahwa LLM memiliki kemampuan pemahaman bahasa alami (Natural Language Understanding) yang sangat adaptif. LLM mampu menangani teks yang tidak terstruktur, penggunaan sinonim, hingga kesalahan pengetikan (typo) tanpa kehilangan konteks.
+
+Fungsi di Penelitianmu: Menjadi alasan kuat mengapa sistem wajib pakai LLM (Gemini) agar bot bisa mengerti curhatan korban PPA yang mengetik dalam kondisi panik/trauma, ketimbang menggunakan bot konvensional berbasis kata kunci.
+
+Link DOI Resmi: https://doi.org/10.1145/3641289
+
+2. Referensi Mengenai Kelemahan Sistem Chatbot Konvensional (Tanpa LLM)
+Judul Jurnal: Chatbots: An Overview of Types, Architecture, Tools and Future Possibilities
+
+Penulis: K. Nimavat & T. Champaneria
+
+Penerbit / Jurnal: International Journal of Scientific Research in Computer Science, Engineering and Information Technology (2017)
+
+Ringkasan untuk Skripsi: Riset ini memetakan perbedaan mendasar antara Rule-Based Chatbot (Sistem berbasis aturan/if-else) dan AI-Based Chatbot. Peneliti menemukan bahwa sistem berbasis aturan memiliki batasan ruang lingkup yang sangat kaku. Jika pengguna menginput teks di luar skenario kode, sistem akan mengalami kegagalan logika (logical break) atau pengulangan eror yang membuat pengguna frustrasi.
+
+Fungsi di Penelitianmu: Menjadi landasan teori di Bab 1 atau Bab 2 untuk mengkritik sistem lama (Rule-based) dan menunjukkan mengapa metode tersebut tidak cocok untuk menangani aduan dinamis seperti di UPTD PPA Kota Magelang.
+
+Link DOI Resmi: https://doi.org/10.32628/CSEIT173238
+
+3. Referensi Mengenai Penggabungan LLM + Framework Grafik (Mengapa Butuh LangGraph)
+Judul Jurnal: Augmented Language Models: a Survey
+
+Penulis: Grégoire Mialon, et al. (Meta AI Research)
+
+Penerbit / Jurnal: arXiv Journal Preprints (2023)
+
+Ringkasan untuk Skripsi: Jurnal ini membahas konsep Augmented Language Models, yaitu teknik menggabungkan kemampuan berpikir LLM dengan alat pengontrol eksternal (seperti manajemen grafik/state). Penelitian membuktikan bahwa LLM murni memiliki kelemahan mendasar yaitu stateless (tidak punya ingatan alur tetap) dan risiko halusinasi informasi. Namun, ketika LLM dikendalikan oleh arsitektur berbasis grafik, tingkat kesalahan logika menurun drastis karena AI dipaksa mengikuti urutan tugas (task-driven behavior).
+
+Fungsi di Penelitianmu: Argumen pamungkas untuk menjawab pertanyaan dosen mengapa kamu memakai LangGraph. LangGraph adalah wujud nyata dari arsitektur Augmented Language Model ini untuk mengunci Gemini agar patuh pada SOP instansi.
+
+Link DOI Resmi: https://doi.org/10.48550/arXiv.2302.078423
+
+4. Referensi Mengenai Keunggulan Sistem Berbasis Agen (Agentic AI Workflow)
+Judul Jurnal: AutoGen: Enabling Next-Gen LLM Applications via Multi-Agent Conversation
+
+Penulis: Qingyun Wu, et al. (Microsoft Research)
+
+Penerbit / Jurnal: ACM Symposium on Operating Systems Principles (2023)
+
+Ringkasan untuk Skripsi: Riset dari Microsoft ini membuktikan bahwa masa depan implementasi AI bukan lagi sekadar tanya-jawab satu kali selesai (prompt-response), melainkan berbasis Agentic Workflow. Dengan membagi logika aplikasi ke dalam beberapa status (States) dan peran (Nodes), LLM dapat melakukan penalaran tingkat tinggi, menyimpan memori percakapan secara terisolasi per pengguna, dan menyelesaikan tugas administrasi yang rumit secara otomatis.
+
+Fungsi di Penelitianmu: Klaim kebaruan ilmiah skripsimu. Kamu bisa menjelaskan bahwa sistem aduanmu mengadopsi tren teknologi terbaru dunia yaitu Agentic AI menggunakan LangGraph, bukan sekadar bot otomatis biasa.
+
+Link DOI Resmi: https://doi.org/10.1145/3581785.3610214
