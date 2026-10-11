@@ -76,11 +76,15 @@ def get_db_connection():
 
     try:
         if ssl_ca:
-            if not os.path.isabs(ssl_ca):
-                # Path absolut dari direktori file ini
-                base_dir = os.path.dirname(os.path.abspath(__file__))
-                ssl_ca = os.path.join(base_dir, ssl_ca)
-            ssl_opt = {"ssl": {"ca": ssl_ca}}
+            # Cari file ca.pem di folder yang sama dengan file main.py ini (root proyek)
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            ssl_ca_path = os.path.join(base_dir, ssl_ca)
+            
+            # Debugging untuk logs Vercel
+            if not os.path.exists(ssl_ca_path):
+                print(f"[SSL WARNING] File tidak ditemukan di: {ssl_ca_path}")
+            
+            ssl_opt = {"ssl": {"ca": ssl_ca_path}}
         else:
             ssl_opt = {}
 
