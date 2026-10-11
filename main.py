@@ -72,20 +72,8 @@ def get_db_connection():
     password = os.getenv("DB_PASSWORD", "")
     database = os.getenv("DB_NAME", "db_pengaduan")
     port = int(os.getenv("DB_PORT", "3306"))
-    ssl_ca = os.getenv("DB_SSL_CA", "")
 
     try:
-        # VERCEL HACK: Jangan gunakan file ca.pem jika di lingkungan serverless
-        if os.getenv("VERCEL") == "1":
-            ssl_opt = {"ssl": {"verify_cert": False}} # Bypass file CA
-        elif ssl_ca:
-            if not os.path.isabs(ssl_ca):
-                base_dir = os.path.dirname(os.path.abspath(__file__))
-                ssl_ca = os.path.join(base_dir, ssl_ca)
-            ssl_opt = {"ssl": {"ca": ssl_ca}}
-        else:
-            ssl_opt = {}
-
         return pymysql.connect(
             host=host,
             user=user,
@@ -94,8 +82,7 @@ def get_db_connection():
             port=port,
             charset="utf8mb4",
             connect_timeout=5,
-            cursorclass=pymysql.cursors.DictCursor,
-            **ssl_opt,
+            cursorclass=pymysql.cursors.DictCursor
         )
     except Exception as e:
         print(f"[DB ERROR] Gagal ke {host}, mencoba localhost: {e}")
