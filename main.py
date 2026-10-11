@@ -493,6 +493,7 @@ async def mark_read(request: Request, nomor_wa: str):
 # --- Autentikasi ---
 @app.post("/auth/login")
 async def login(req: AuthLogin):
+    # Tidak pakai validate_token di sini
     conn = get_db_connection()
     try:
         with conn.cursor() as cur:
