@@ -75,16 +75,14 @@ def get_db_connection():
     ssl_ca = os.getenv("DB_SSL_CA", "")
 
     try:
-        if ssl_ca:
-            # Cari file ca.pem di folder yang sama dengan file main.py ini (root proyek)
-            base_dir = os.path.dirname(os.path.abspath(__file__))
-            ssl_ca_path = os.path.join(base_dir, ssl_ca)
-            
-            # Debugging untuk logs Vercel
-            if not os.path.exists(ssl_ca_path):
-                print(f"[SSL WARNING] File tidak ditemukan di: {ssl_ca_path}")
-            
-            ssl_opt = {"ssl": {"ca": ssl_ca_path}}
+        # VERCEL HACK: Jangan gunakan file ca.pem jika di lingkungan serverless
+        if os.getenv("VERCEL") == "1":
+            ssl_opt = {"ssl": {"verify_cert": False}} # Bypass file CA
+        elif ssl_ca:
+            if not os.path.isabs(ssl_ca):
+                base_dir = os.path.dirname(os.path.abspath(__file__))
+                ssl_ca = os.path.join(base_dir, ssl_ca)
+            ssl_opt = {"ssl": {"ca": ssl_ca}}
         else:
             ssl_opt = {}
 
