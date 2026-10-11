@@ -15,7 +15,7 @@ from typing import Optional
 
 load_dotenv()
 
-app = FastAPI(title="AMARA Bot Service")
+app = FastAPI(title="AMARA Bot Service", redirect_slashes=True)
 
 # Alamat dasbor yang diizinkan, pisahkan dengan koma. Contoh: http://localhost:5173
 ALLOWED_ORIGINS = ["*"]  # Perlonggar sementara untuk tes koneksi
