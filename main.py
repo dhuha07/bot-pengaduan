@@ -747,7 +747,7 @@ async def tambah_pengguna_api(request: Request, body: dict):
             email = body.get("email", "").strip()
             peran = body.get("peran", "Petugas").strip()
             password = body.get("password", "password123").strip()
-            username = email.split("@")[0].replace(".", "_")
+            username = body.get("username", "").strip() or email.split("@")[0].replace(".", "_")
             password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
             
             cur.execute("SELECT id FROM pengguna WHERE email=%s OR username=%s", (email, username))
@@ -842,5 +842,22 @@ async def ubah_status_pengguna(request: Request, id: int, body: dict):
                 "terakhirLogin": user["terakhir_login"].isoformat() if user["terakhir_login"] else None,
                 "createdAt": user["created_at"].isoformat() if user["created_at"] else None,
             }
+    finally:
+        conn.close()
+
+
+@app.post("/api/pengguna/{id}/reset-password")
+async def reset_password(request: Request, id: int, body: dict):
+    validate_token(request)
+    conn = get_db_connection()
+    try:
+        with conn.cursor() as cur:
+            password = body.get("password", "").strip()
+            if len(password) < 6:
+                raise HTTPException(status_code=400, detail="Password minimal 6 karakter")
+            password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+            cur.execute("UPDATE pengguna SET password_hash=%s WHERE id=%s", (password_hash, id))
+            conn.commit()
+            return {"status": "ok", "pesan": "Password berhasil direset"}
     finally:
         conn.close()
