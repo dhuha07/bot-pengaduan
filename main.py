@@ -493,16 +493,15 @@ async def mark_read(request: Request, nomor_wa: str):
 # --- Autentikasi ---
 @app.post("/auth/login")
 async def login(req: AuthLogin):
-    # Tidak pakai validate_token di sini
     conn = get_db_connection()
     try:
         with conn.cursor() as cur:
-            cur.execute("SELECT * FROM pengguna WHERE username=%s", (req.username,))
+            cur.execute("SELECT * FROM pengguna WHERE username=%s OR email=%s", (req.username, req.username))
             user = cur.fetchone()
             if not user or not bcrypt.checkpw(req.password.encode('utf-8'), user['password_hash'].encode('utf-8')):
                 raise HTTPException(status_code=401, detail="Username atau password salah")
             if user['status'] != 'Aktif':
-                raise HTTPException(status_code=403, detail="Akun belum aktif/dinonaktifkan")
+                raise HTTPException(status_code=403, detail=f"Akun berstatus {user['status']}, hubungi Super Admin")
             
             cur.execute("UPDATE pengguna SET terakhir_login=NOW() WHERE id=%s", (user['id'],))
             conn.commit()
