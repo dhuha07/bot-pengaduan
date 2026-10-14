@@ -869,44 +869,73 @@ async def reset_password(request: Request, id: int, body: dict):
 async def qr_status(request: Request):
     """Proxy QR Fonnte biar frontend tampil realtime tanpa buka dashboard Fonnte.
     Return {status, qr, qr_link, wa_status}. QR auto-refresh via polling frontend."""
-    token = os.getenv("FONNTE_TOKEN", "")
-    # jika token belum diisi -> mode demo agar frontend tetap tampil
+    token = os.getenv("FONNTE_TOKEN", "").strip()
     if not token:
         return {
-            "status": "scan",
+            "status": "error",
             "wa_status": "offline",
             "qr": None,
             "qr_link": None,
-            "message": "FONNTE_TOKEN belum diisi di env backend. Isi di Vercel env lalu redeploy.",
+            "message": "FONNTE_TOKEN kosong. Set di Vercel Backend -> Settings -> Environment Variables -> FONNTE_TOKEN, lalu Redeploy.",
             "demo": True,
         }
+    wa_status = "offline"
+    qr_data = None
+    raw_debug = None
     try:
-        # cek status device dulu
-        r = requests.post("https://api.fonnte.com/device", headers={"Authorization": token}, timeout=5)
-        wa_status = "offline"
-        qr_data = None
-        if r.status_code == 200:
-            j = r.json()
-            # Fonnte device status
-            if j.get("status") and j.get("device_status") == "connect":
-                wa_status = "online"
-                return {"status": "connected", "wa_status": "online", "qr": None, "qr_link": None}
-            # ambil QR
-            qr_data = j.get("qr") or j.get("url") or j.get("qr_link")
-        # fallback: coba endpoint qr khusus
+        # 1. cek device (endpoint resmi Fonnte)
+        try:
+            r = requests.post("https://api.fonnte.com/device", headers={"Authorization": token}, timeout=8)
+            raw_debug = f"device:{r.status_code}:{r.text[:500]}"
+            if r.status_code == 200:
+                j = r.json()
+                # device connect ?
+                # Fonnte return: {"status":true, "data":[{device_status:"connect"}]} atau {"device_status":"connect"}
+                if j.get("device_status") == "connect":
+                    return {"status": "connected", "wa_status": "online", "qr": None, "qr_link": None}
+                if isinstance(j.get("data"), list):
+                    for d in j["data"]:
+                        if d.get("device_status") == "connect" or d.get("status") == "connect":
+                            return {"status": "connected", "wa_status": "online", "qr": None, "qr_link": None}
+                        q = d.get("qr") or d.get("qr_link") or d.get("url") or d.get("qrcode")
+                        if q:
+                            qr_data = q
+                if not qr_data:
+                    qr_data = j.get("qr") or j.get("qr_link") or j.get("url") or j.get("qrcode") or j.get("data")
+                # kalau ada qr langsung return
+                if qr_data:
+                    # Fonnte kadang return base64 tanpa prefix, tambahkan prefix jika perlu
+                    if isinstance(qr_data, str) and not qr_data.startswith("data:") and not qr_data.startswith("http"):
+                        # cek apakah base64 png
+                        if len(qr_data) > 200:
+                            qr_data = "data:image/png;base64," + qr_data
+                    return {"status": "scan", "wa_status": wa_status, "qr": qr_data, "qr_link": qr_data}
+        except Exception as e:
+            raw_debug = str(e)[:500]
+
+        # 2. fallback endpoint qr
         if not qr_data:
             try:
-                r2 = requests.post("https://api.fonnte.com/qr", headers={"Authorization": token}, timeout=5)
+                r2 = requests.post("https://api.fonnte.com/qr", headers={"Authorization": token}, timeout=8)
+                raw_debug = (raw_debug or "") + f" | qr:{r2.status_code}:{r2.text[:500]}"
                 if r2.status_code == 200:
                     j2 = r2.json()
-                    qr_data = j2.get("qr") or j2.get("url") or j2.get("qr_link") or j2.get("data")
-                    if j2.get("status") == True and "connected" in str(j2).lower():
-                        return {"status": "connected", "wa_status": "online", "qr": None, "qr_link": None}
-            except Exception:
-                pass
+                    if j2.get("device_status") == "connect" or str(j2).lower().count("connected") > 0 and j2.get("status") is True:
+                        # cek benar-benar connect
+                        if j2.get("device_status") == "connect":
+                            return {"status": "connected", "wa_status": "online", "qr": None, "qr_link": None}
+                    q2 = j2.get("qr") or j2.get("qr_link") or j2.get("url") or j2.get("qrcode") or j2.get("data") or j2.get("base64")
+                    if q2:
+                        qr_data = q2
+                        if isinstance(qr_data, str) and not qr_data.startswith("data:") and not qr_data.startswith("http") and len(qr_data) > 200:
+                            qr_data = "data:image/png;base64," + qr_data
+                        return {"status": "scan", "wa_status": wa_status, "qr": qr_data, "qr_link": qr_data}
+            except Exception as e2:
+                raw_debug = (raw_debug or "") + f" | qr_err:{str(e2)[:200]}"
+
         if qr_data:
             return {"status": "scan", "wa_status": wa_status, "qr": qr_data, "qr_link": qr_data}
-        # jika Fonnte tidak return QR tapi tidak error -> masih scan mode
-        return {"status": "scan", "wa_status": wa_status, "qr": None, "qr_link": None, "message": "Menunggu QR dari Fonnte..."}
+        # tidak ada qr, kirim debug biar frontend tahu
+        return {"status": "error", "wa_status": wa_status, "qr": None, "qr_link": None, "message": "Fonnte tidak mengembalikan QR. Cek Device di Fonnte: disconnect device dulu lalu scan ulang. ", "debug": raw_debug}
     except Exception as e:
-        return {"status": "error", "wa_status": "offline", "qr": None, "qr_link": None, "message": str(e)}
+        return {"status": "error", "wa_status": "offline", "qr": None, "qr_link": None, "message": str(e), "debug": raw_debug}
