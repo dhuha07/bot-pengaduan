@@ -28,6 +28,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+@app.middleware("http")
+async def add_security_headers(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["Content-Security-Policy"] = "default-src * 'unsafe-inline' 'unsafe-eval' data: blob:;"
+    return response
+
+
 # Isi false jika ada kode lain (mis. api/index.py) yang SUDAH menulis ke chat_logs
 LOG_DI_MAIN = os.getenv("LOG_DI_MAIN", "true").lower() == "true"
 # Pesan dalam rentang ini dianggap kelanjutan pengaduan yang sama
