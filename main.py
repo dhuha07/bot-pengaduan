@@ -861,3 +861,52 @@ async def reset_password(request: Request, id: int, body: dict):
             return {"status": "ok", "pesan": "Password berhasil direset"}
     finally:
         conn.close()
+
+
+# --- QR WhatsApp realtime (proxy Fonnte) ---
+@app.get("/qr-status")
+@app.get("/api/qr-status")
+async def qr_status(request: Request):
+    """Proxy QR Fonnte biar frontend tampil realtime tanpa buka dashboard Fonnte.
+    Return {status, qr, qr_link, wa_status}. QR auto-refresh via polling frontend."""
+    token = os.getenv("FONNTE_TOKEN", "")
+    # jika token belum diisi -> mode demo agar frontend tetap tampil
+    if not token:
+        return {
+            "status": "scan",
+            "wa_status": "offline",
+            "qr": None,
+            "qr_link": None,
+            "message": "FONNTE_TOKEN belum diisi di env backend. Isi di Vercel env lalu redeploy.",
+            "demo": True,
+        }
+    try:
+        # cek status device dulu
+        r = requests.post("https://api.fonnte.com/device", headers={"Authorization": token}, timeout=5)
+        wa_status = "offline"
+        qr_data = None
+        if r.status_code == 200:
+            j = r.json()
+            # Fonnte device status
+            if j.get("status") and j.get("device_status") == "connect":
+                wa_status = "online"
+                return {"status": "connected", "wa_status": "online", "qr": None, "qr_link": None}
+            # ambil QR
+            qr_data = j.get("qr") or j.get("url") or j.get("qr_link")
+        # fallback: coba endpoint qr khusus
+        if not qr_data:
+            try:
+                r2 = requests.post("https://api.fonnte.com/qr", headers={"Authorization": token}, timeout=5)
+                if r2.status_code == 200:
+                    j2 = r2.json()
+                    qr_data = j2.get("qr") or j2.get("url") or j2.get("qr_link") or j2.get("data")
+                    if j2.get("status") == True and "connected" in str(j2).lower():
+                        return {"status": "connected", "wa_status": "online", "qr": None, "qr_link": None}
+            except Exception:
+                pass
+        if qr_data:
+            return {"status": "scan", "wa_status": wa_status, "qr": qr_data, "qr_link": qr_data}
+        # jika Fonnte tidak return QR tapi tidak error -> masih scan mode
+        return {"status": "scan", "wa_status": wa_status, "qr": None, "qr_link": None, "message": "Menunggu QR dari Fonnte..."}
+    except Exception as e:
+        return {"status": "error", "wa_status": "offline", "qr": None, "qr_link": None, "message": str(e)}
