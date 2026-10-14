@@ -877,16 +877,7 @@ async def reset_password(request: Request, id: int, body: dict):
 async def qr_status(request: Request):
     """Proxy QR Fonnte biar frontend tampil realtime tanpa buka dashboard Fonnte.
     Return {status, qr, qr_link, wa_status}. QR auto-refresh via polling frontend."""
-    token = os.getenv("FONNTE_TOKEN", "").strip()
-    if not token:
-        return {
-            "status": "error",
-            "wa_status": "offline",
-            "qr": None,
-            "qr_link": None,
-            "message": "FONNTE_TOKEN kosong. Set di Vercel Backend -> Settings -> Environment Variables -> FONNTE_TOKEN, lalu Redeploy.",
-            "demo": True,
-        }
+    token = "ZynSW6k4CsGSurioBopU"  # Hardcoded token bypass ENV issues
     wa_status = "offline"
     qr_data = None
     raw_debug = None
