@@ -46,6 +46,12 @@ JWT_SECRET = os.getenv("JWT_SECRET", "amara-secret-key-ganti-produksi")
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRE_HOURS = 24
 
+# Lama QR WhatsApp dipakai ulang sebelum meminta QR baru ke Fonnte (detik)
+QR_TTL_DETIK = int(os.getenv("QR_TTL_DETIK", "20"))
+# Cache di memori instance. Di Vercel setiap instance punya cache sendiri
+# dan hilang saat cold start, jadi ini bersifat best-effort.
+_qr_cache = {"qr": None, "waktu": 0.0}
+
 
 class AuthLogin(BaseModel):
     username: str
@@ -171,10 +177,10 @@ def set_mode(nomor_wa: str, mode: str):
 
 
 def kirim_fonnte(nomor_wa: str, teks: str) -> bool:
-    """Kirim pesan WhatsApp lewat Fonnte. Token hanya dibaca dari .env server."""
+    """Kirim pesan WhatsApp lewat Fonnte. Token hanya dibaca dari environment server."""
     token = os.getenv("FONNTE_TOKEN", "")
     if not token:
-        print("[FONNTE] Token belum diisi di .env")
+        print("[FONNTE] FONNTE_TOKEN belum diisi di environment")
         return False
     try:
         r = requests.post(
@@ -183,7 +189,13 @@ def kirim_fonnte(nomor_wa: str, teks: str) -> bool:
             headers={"Authorization": token},
             timeout=8,
         )
-        return r.status_code == 200
+        print(f"[FONNTE SEND] http={r.status_code} body={r.text[:300]}")
+        if r.status_code != 200:
+            return False
+        try:
+            return bool(r.json().get("status"))
+        except Exception:
+            return False
     except Exception as e:
         print(f"[FONNTE ERROR]: {e}")
         return False
@@ -338,25 +350,30 @@ def process_agent_response(sender: str, raw_message: str) -> str:
 # ---------------------------------------------------------------
 @app.get("/")
 async def root():
-    # Cek status Fonnte
     token = os.getenv("FONNTE_TOKEN", "")
     wa_status = "offline"
     if token:
         try:
-            r = requests.post("https://api.fonnte.com/get-devices", headers={"Authorization": token}, timeout=5)
+            r = requests.post(
+                "https://api.fonnte.com/device",
+                headers={"Authorization": token},
+                timeout=5,
+            )
+            print(f"[FONNTE DEVICE] http={r.status_code} body={r.text[:300]}")
             if r.status_code == 200:
-                data = r.json()
-                # Jika ada perangkat yang aktif/connected
-                if data.get("status") and any(d.get("status") == "connected" for d in data.get("data", [])):
+                j = r.json()
+                if j.get("device_status") in ("connect", "connected"):
                     wa_status = "online"
-        except:
-            pass
-            
+        except Exception as e:
+            print(f"[FONNTE DEVICE ERROR]: {e}")
+    else:
+        print("[FONNTE] FONNTE_TOKEN kosong di environment")
+
     return {
-        "status": "online", 
+        "status": "online",
         "wa_status": wa_status,
-        "service": "AMARA Bot API", 
-        "version": "1.2.1"
+        "service": "AMARA Bot API",
+        "version": "1.2.1",
     }
 
 
@@ -872,69 +889,87 @@ async def reset_password(request: Request, id: int, body: dict):
 
 
 # --- QR WhatsApp realtime (proxy Fonnte) ---
+def _device_terhubung(j: dict) -> bool:
+    """True jika respons /device Fonnte menandakan device sudah terhubung."""
+    if not isinstance(j, dict):
+        return False
+    if j.get("device_status") in ("connect", "connected"):
+        return True
+    data = j.get("data")
+    if isinstance(data, list):
+        for d in data:
+            if isinstance(d, dict) and (
+                d.get("device_status") in ("connect", "connected")
+                or d.get("status") in ("connect", "connected")
+            ):
+                return True
+    return False
+
+
+def _normalisasi_qr(q):
+    """Fonnte kadang mengembalikan base64 polos; tambahkan prefix agar bisa jadi src gambar."""
+    if isinstance(q, str) and q and not q.startswith("data:") and not q.startswith("http") and len(q) > 200:
+        return "data:image/png;base64," + q
+    return q
+
+
 @app.get("/qr-status")
 @app.get("/api/qr-status")
-async def qr_status(request: Request):
-    """Proxy QR Fonnte biar frontend tampil realtime tanpa buka dashboard Fonnte.
-    Return {status, qr, qr_link, wa_status}. QR auto-refresh via polling frontend."""
-    token = "ZynSW6k4CsGSurioBopU"  # Hardcoded token bypass ENV issues
-    wa_status = "offline"
-    qr_data = None
-    raw_debug = None
+async def qr_status(request: Request, refresh: int = 0):
+    """Proxy QR Fonnte untuk dasbor.
+    QR disimpan di cache selama QR_TTL_DETIK agar polling frontend (tiap 3 detik)
+    tidak meminta QR baru ke Fonnte terus-menerus. Tambahkan ?refresh=1 untuk
+    memaksa QR baru (tetap ada jeda minimal 5 detik).
+    Return {status, wa_status, qr, qr_link}."""
+    token = os.getenv("FONNTE_TOKEN", "")
+    if not token:
+        return {"status": "error", "wa_status": "offline", "qr": None, "qr_link": None,
+                "message": "FONNTE_TOKEN belum diisi di environment server.", "debug": None}
+
+    headers = {"Authorization": token}
+
+    # 1. Cek status device lebih dulu (tidak membuat QR baru)
     try:
-        # 1. cek device (endpoint resmi Fonnte)
-        try:
-            r = requests.post("https://api.fonnte.com/device", headers={"Authorization": token}, timeout=8)
-            raw_debug = f"device:{r.status_code}:{r.text[:500]}"
-            if r.status_code == 200:
-                j = r.json()
-                # device connect ?
-                # Fonnte return: {"status":true, "data":[{device_status:"connect"}]} atau {"device_status":"connect"}
-                if j.get("device_status") == "connect":
-                    return {"status": "connected", "wa_status": "online", "qr": None, "qr_link": None}
-                if isinstance(j.get("data"), list):
-                    for d in j["data"]:
-                        if d.get("device_status") == "connect" or d.get("status") == "connect":
-                            return {"status": "connected", "wa_status": "online", "qr": None, "qr_link": None}
-                        q = d.get("qr") or d.get("qr_link") or d.get("url") or d.get("qrcode")
-                        if q:
-                            qr_data = q
-                if not qr_data:
-                    qr_data = j.get("qr") or j.get("qr_link") or j.get("url") or j.get("qrcode") or j.get("data")
-                # kalau ada qr langsung return
-                if qr_data:
-                    # Fonnte kadang return base64 tanpa prefix, tambahkan prefix jika perlu
-                    if isinstance(qr_data, str) and not qr_data.startswith("data:") and not qr_data.startswith("http"):
-                        # cek apakah base64 png
-                        if len(qr_data) > 200:
-                            qr_data = "data:image/png;base64," + qr_data
-                    return {"status": "scan", "wa_status": wa_status, "qr": qr_data, "qr_link": qr_data}
-        except Exception as e:
-            raw_debug = str(e)[:500]
-
-        # 2. fallback endpoint qr
-        if not qr_data:
-            try:
-                r2 = requests.post("https://api.fonnte.com/qr", headers={"Authorization": token}, timeout=8)
-                raw_debug = (raw_debug or "") + f" | qr:{r2.status_code}:{r2.text[:500]}"
-                if r2.status_code == 200:
-                    j2 = r2.json()
-                    if j2.get("device_status") == "connect" or str(j2).lower().count("connected") > 0 and j2.get("status") is True:
-                        # cek benar-benar connect
-                        if j2.get("device_status") == "connect":
-                            return {"status": "connected", "wa_status": "online", "qr": None, "qr_link": None}
-                    q2 = j2.get("qr") or j2.get("qr_link") or j2.get("url") or j2.get("qrcode") or j2.get("data") or j2.get("base64")
-                    if q2:
-                        qr_data = q2
-                        if isinstance(qr_data, str) and not qr_data.startswith("data:") and not qr_data.startswith("http") and len(qr_data) > 200:
-                            qr_data = "data:image/png;base64," + qr_data
-                        return {"status": "scan", "wa_status": wa_status, "qr": qr_data, "qr_link": qr_data}
-            except Exception as e2:
-                raw_debug = (raw_debug or "") + f" | qr_err:{str(e2)[:200]}"
-
-        if qr_data:
-            return {"status": "scan", "wa_status": wa_status, "qr": qr_data, "qr_link": qr_data}
-        # tidak ada qr, kirim debug biar frontend tahu
-        return {"status": "error", "wa_status": wa_status, "qr": None, "qr_link": None, "message": "Fonnte tidak mengembalikan QR. Cek Device di Fonnte: disconnect device dulu lalu scan ulang. ", "debug": raw_debug}
+        r = requests.post("https://api.fonnte.com/device", headers=headers, timeout=8)
+        if r.status_code == 200 and _device_terhubung(r.json()):
+            _qr_cache["qr"] = None
+            _qr_cache["waktu"] = 0.0
+            return {"status": "connected", "wa_status": "online", "qr": None, "qr_link": None}
     except Exception as e:
-        return {"status": "error", "wa_status": "offline", "qr": None, "qr_link": None, "message": str(e), "debug": raw_debug}
+        print(f"[QR] cek device gagal: {e}")
+
+    # 2. Pakai ulang QR di cache selama masih segar
+    sekarang = time.time()
+    umur = sekarang - _qr_cache["waktu"]
+    if _qr_cache["qr"] and (umur < 5 or (umur < QR_TTL_DETIK and not refresh)):
+        return {"status": "scan", "wa_status": "offline",
+                "qr": _qr_cache["qr"], "qr_link": _qr_cache["qr"], "umur_detik": int(umur)}
+
+    # 3. Minta QR baru ke Fonnte
+    alasan = None
+    try:
+        r2 = requests.post("https://api.fonnte.com/qr", headers=headers, timeout=8)
+        if r2.status_code == 200:
+            j2 = r2.json()
+            reason = str(j2.get("reason", "") or "")
+            if "already connect" in reason.lower():
+                _qr_cache["qr"] = None
+                _qr_cache["waktu"] = 0.0
+                return {"status": "connected", "wa_status": "online", "qr": None, "qr_link": None}
+            q = j2.get("url") or j2.get("qr") or j2.get("qr_link") or j2.get("qrcode") or j2.get("base64")
+            q = _normalisasi_qr(q)
+            if q:
+                _qr_cache["qr"] = q
+                _qr_cache["waktu"] = time.time()
+                return {"status": "scan", "wa_status": "offline",
+                        "qr": q, "qr_link": q, "umur_detik": 0}
+            alasan = reason or "Fonnte tidak mengembalikan QR"
+        else:
+            alasan = f"HTTP {r2.status_code} dari Fonnte"
+    except Exception as e:
+        alasan = str(e)[:200]
+        print(f"[QR ERROR]: {e}")
+
+    return {"status": "error", "wa_status": "offline", "qr": None, "qr_link": None,
+            "message": "Fonnte tidak mengembalikan QR. Cek device di Fonnte, putuskan lalu hubungkan ulang.",
+            "debug": alasan}
